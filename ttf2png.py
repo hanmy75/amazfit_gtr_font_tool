@@ -1,6 +1,6 @@
 import sys, os
-import numpy as np
 import png
+import glob
 import argparse
 from PIL import Image, ImageDraw, ImageFont
 
@@ -21,41 +21,67 @@ from PIL import Image, ImageDraw, ImageFont
 
 font_postfix = "ff0001"
 
-co = "0 1 2 3 4 5 6 7 8 9 a b c d e f"
-start = "ac00"
-end = "d7a3"
-co = co.split(" ")
 
-Hangul_Syllables = [a+b+c+d
-                    for a in co
-                    for b in co
-                    for c in co
-                    for d in co]
+# https://jrgraphix.net/research/unicode_blocks.php
+font_range_list = [
+#    [0x2150, 0x218f],  # Number Forms
+#    [0x2190, 0x21ff],  # Arrows
+#    [0x2200, 0x22ff],  # Mathematical Operators
+#    [0x2460, 0x24ff],  # Enclosed Alphanumerics
+#    [0x2500, 0x257f],  # Box Drawing
+#    [0x25a0, 0x25ff],  # Geometric Shapes
+#    [0x2600, 0x26ff],  # Miscellaneous Symbols
+#    [0x2700, 0x27bf],  # Dingbats
+#    [0x3040, 0x309f],  # Hiragana
+#    [0x30a0, 0x30ff],  # Katakana
+    [0x3130, 0x318f],  # Hangul Compatibility Jamo
+    [0xac00, 0xd7a3],  # Hangul Syllables
+]
 
-Hangul_Syllables = np.array(Hangul_Syllables)
-s = np.where(start == Hangul_Syllables)[0][0]
-e = np.where(end == Hangul_Syllables)[0][0]
-Hangul_Syllables = Hangul_Syllables[s : e + 1]
+def RemoveExistCharacter():
+    for sub_range in font_range_list:
+        start = sub_range[0]
+        end   = sub_range[1]
+        for uni in range(start, end+1):
+            # Remove existing character
+            for n in glob.glob(output_path + "/" + "%04x*" % uni):
+                if os.path.isfile(n):
+                    print("Remove %s" % n)
+                    os.remove(n)
 
 
 def ConvertTTF(font_path, font_size):
-    output_path = "./output"
-    os.makedirs(output_path, exist_ok = True)
+    font = ImageFont.truetype(font=font_path, size = font_size)
+    ascent, descent = font.getmetrics()
 
-    for uni in Hangul_Syllables:
-        unicodeChars = chr(int(uni, 16))
+    for sub_range in font_range_list:
+        start = sub_range[0]
+        end   = sub_range[1]
+        for uni in range(start, end+1):
+            unicodeChars = chr(uni)
 
-        font = ImageFont.truetype(font=font_path, size = font_size)
-        width, height = font.getsize(unicodeChars)
-        theImage = Image.new('L', (font_size, font_size+2), color='black')
-        theDrawPad = ImageDraw.Draw(theImage)
-        theDrawPad.text((0.0, 0.0), unicodeChars[0], font=font, fill='white' )
+            width, height = font.getsize(unicodeChars)
+            (width, baseline), (offset_x, offset_y) = font.font.getsize(unicodeChars)
+            cropped_width  = width  - offset_x
+            cropped_height = height - offset_y
 
-        file_name = output_path + "/" + "%04x-%02x%02x%02x%02x%02x%s" % (int(uni,16), width, height, height-1, 1, width+2, font_postfix)
-        theImage.save('{}.png'.format(file_name))
+            if cropped_width>0 and cropped_height>0 :
+                theImage = Image.new('L', (width, height), color='black')
+                theDrawPad = ImageDraw.Draw(theImage)
+                theDrawPad.text((0.0, 0.0), unicodeChars[0], font=font, fill='white' )
+                croppedImage = theImage.crop((offset_x, offset_y, width, height))
 
-        print("Create %04x : size(%d,%d)" % (int(uni,16), width, height))
+                # Get vertical offset
+                vo = ascent - offset_y
 
+                print("Create %04x : size(%d,%d) offset %d" % (uni, cropped_width, cropped_height, vo))
+
+                file_name = output_path + "/" + "%04x-%02x%02x%02x%02x%02x%s" % (uni, cropped_width, cropped_height, vo, 0, width, font_postfix)
+                croppedImage.save('{}.png'.format(file_name))
+            else :
+                file_name = output_path + "/" + "%04x-%02x%02x%02x%02x%02x%s.png" % (uni, 0, 0, 0, 0, width, font_postfix)
+                dummypng = open(file_name, "wb")
+                dummypng.close()
 
 
 # Main
@@ -65,7 +91,10 @@ parser.add_argument("filename",
 args = parser.parse_args()
 
 if args.filename:
-    ConvertTTF(args.filename, font_size=24)
+    output_path = "./output"
+    os.makedirs(output_path, exist_ok = True)
+    #RemoveExistCharacter()
+    ConvertTTF(args.filename, font_size=26)
 else:
     print('Usage:')
     print('   python3', sys.argv[0], 'NanumGothicBold.ttf')
