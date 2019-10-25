@@ -4,7 +4,22 @@ import png
 import argparse
 from PIL import Image, ImageDraw, ImageFont
 
-font_postfix = "181a190018ff0001"
+
+#http://www.brescianet.com/appunti/vari/unicode.htm#Latino_base
+#w+ is the w+ the space between the next char
+#vo is the vertical offset of the image...
+#ofs         Ul  Uh w  h  vo    w+
+#00 00 00 00 00  00 00 00 00 00 00 ff 00 01 nul
+#00 00 00 00 0d  00 00 00 00 00 08 ff 00 01 cr
+#00 00 00 00 20  00 00 00 00 00 08 ff 00 01 sp
+#00 00 00 00 21  00 04 16 16 02 08 ff 00 01 !
+#2c 00 00 00 22  00 0a 08 16 01 0c ff 00 01 "
+#59 00 00 00 23  00 13 16 16 00 13 ff 00 01 #
+#35 01 00 00 24  00 0f 1a 17 01 11 ff 00 01 $
+
+#3e 37 00 00 a2  00 0d 16 16 02 11 ff 00 01 c/
+
+font_postfix = "ff0001"
 
 co = "0 1 2 3 4 5 6 7 8 9 a b c d e f"
 start = "ac00"
@@ -31,14 +46,16 @@ def ConvertTTF(font_path, font_size):
         unicodeChars = chr(int(uni, 16))
 
         font = ImageFont.truetype(font=font_path, size = font_size)
+        width, height = font.getsize(unicodeChars)
         theImage = Image.new('L', (font_size, font_size+2), color='black')
         theDrawPad = ImageDraw.Draw(theImage)
-        theDrawPad.text((0.0, -1.0), unicodeChars[0], font=font, fill='white' )
+        theDrawPad.text((0.0, 0.0), unicodeChars[0], font=font, fill='white' )
 
-        file_name = output_path + "/" + uni + "-" + font_postfix
+        file_name = output_path + "/" + "%04x-%02x%02x%02x%02x%02x%s" % (int(uni,16), width, height, height-1, 1, width+2, font_postfix)
         theImage.save('{}.png'.format(file_name))
 
-        print("Create %04x : size(%d,%d)" % (int(uni,16), theImage.width, theImage.height))
+        print("Create %04x : size(%d,%d)" % (int(uni,16), width, height))
+
 
 
 # Main
