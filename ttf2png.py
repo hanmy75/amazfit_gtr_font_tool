@@ -72,7 +72,7 @@ def ConvertTTF(font_path, font_size):
                 croppedImage = theImage.crop((offset_x, offset_y, width, height))
 
                 # Get vertical offset
-                vo = ascent - offset_y
+                vo = ascent - offset_y + 2
 
                 print("Create %04x : size(%d,%d) offset %d" % (uni, cropped_width, cropped_height, vo))
 
