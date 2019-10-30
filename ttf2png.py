@@ -1,8 +1,19 @@
+#!/usr/bin/python3
 import sys, os
 import png
 import glob
 import argparse
+from struct import unpack
 from PIL import Image, ImageDraw, ImageFont
+
+
+test_string = "ABCD가나다라"
+test_image_filename = "test_image.png"
+canvas_width = 200
+canvas_height = 50
+canvas_baseline = 30
+
+font_postfix = "ff0001"
 
 
 #http://www.brescianet.com/appunti/vari/unicode.htm#Latino_base
@@ -16,11 +27,7 @@ from PIL import Image, ImageDraw, ImageFont
 #2c 00 00 00 22  00 0a 08 16 01 0c ff 00 01 "
 #59 00 00 00 23  00 13 16 16 00 13 ff 00 01 #
 #35 01 00 00 24  00 0f 1a 17 01 11 ff 00 01 $
-
 #3e 37 00 00 a2  00 0d 16 16 02 11 ff 00 01 c/
-
-font_postfix = "ff0001"
-
 
 # https://jrgraphix.net/research/unicode_blocks.php
 font_range_list = [
@@ -49,6 +56,35 @@ def RemoveExistCharacter():
                     print("Remove %s" % n)
                     os.remove(n)
 
+def DrawTestString(string):
+    # Create image
+    theImage = Image.new('L', (canvas_width, canvas_height), color='black')
+    tuple_of_shorts = unpack('H'*(len(string)//2),string)
+    x = 4
+    y = 4
+    for uni in tuple_of_shorts:
+        if uni == 0xfeff:
+            continue
+        for n in glob.glob(output_path + "/" + "%04x*" % uni):
+            if os.path.isfile(n):
+                position_info = n.split('-')[1]
+                width  = int(position_info[0:2], 16)
+                height = int(position_info[2:4], 16)
+                vo     = int(position_info[4:6], 16)
+                ho     = int(position_info[6:8], 16)
+                next_offset = int(position_info[8:10], 16)
+                if vo>=128:
+                    vo = vo - 256
+                if ho>=128:
+                    ho = ho - 256
+
+                #print("Data[%04x] %d,%d - %d,%d" % (uni, ho, vo, width, height))
+
+                im = Image.open(n)
+                theImage.paste(im, (x+ho,y+canvas_baseline-vo))
+                x = x + next_offset
+    theImage.save(test_image_filename)
+
 
 def ConvertTTF(font_path, font_size):
     font = ImageFont.truetype(font=font_path, size = font_size)
@@ -72,11 +108,11 @@ def ConvertTTF(font_path, font_size):
                 croppedImage = theImage.crop((offset_x, offset_y, width, height))
 
                 # Get vertical offset
-                vo = ascent - offset_y + 2
+                vo = ascent - offset_y + 3
 
                 print("Create %04x : size(%d,%d) offset %d" % (uni, cropped_width, cropped_height, vo))
 
-                file_name = output_path + "/" + "%04x-%02x%02x%02x%02x%02x%s" % (uni, cropped_width, cropped_height, vo, 0, width, font_postfix)
+                file_name = output_path + "/" + "%04x-%02x%02x%02x%02x%02x%s" % (uni, cropped_width, cropped_height, vo&0xff, offset_x&0xff, width, font_postfix)
                 croppedImage.save('{}.png'.format(file_name))
             else :
                 file_name = output_path + "/" + "%04x-%02x%02x%02x%02x%02x%s.png" % (uni, 0, 0, 0, 0, width, font_postfix)
@@ -95,6 +131,7 @@ if args.filename:
     os.makedirs(output_path, exist_ok = True)
     #RemoveExistCharacter()
     ConvertTTF(args.filename, font_size=26)
+    DrawTestString(test_string.encode('utf-16'))
 else:
     print('Usage:')
     print('   python3', sys.argv[0], 'NanumGothicBold.ttf')
