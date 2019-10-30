@@ -63,7 +63,7 @@ dirname = "bmp-gtr"
 # Creates 1bpp bmp images
 def unpackFont(font_path, raw = None, verbose = 0):
 	print('Unpacking', font_path)
-	
+
 	font_file = open(font_path, 'rb')
 	font_path.join(font_path.split(os.sep)[:-1])
 	if not os.path.exists(dirname):
@@ -76,13 +76,13 @@ def unpackFont(font_path, raw = None, verbose = 0):
 	print ("fontVersion",fontVersion)
 	#num_ranges = (header[0x21] << 8) + header[0x20]
 	#print ("num_ranges 0x%x" % num_ranges)
-	
+
 	fontFlag = header[0x0A]
 	isNonLatin = bool(fontFlag & 1)
 	isLatin = bool((fontFlag & 2)>>1)
 	print ("non-Latin: %s" % (isNonLatin))
 	print ("Latin:     %s" % (isLatin))
-		
+
 	last_block = file_content[-0xe::]
 	print ("last_block", last_block)
 	last_img = (ord(last_block[3:4])<<24) + (ord(last_block[2:3])<<16) + (ord(last_block[1:2])<<8)+ (ord(last_block[0:1])<<0)
@@ -91,33 +91,33 @@ def unpackFont(font_path, raw = None, verbose = 0):
 	img_addr=0
 	#print ("ptr=%06x %s img_data_addr=%08x+0x20 unicode=%04x" %(pointer, last_block.hex(), img_addr, unicode, ))
 	print ("ptr=%06x %s img_data_addr=%08x+0x20 unicode=%04x" %(pointer, " ".join(["%02x" % el for el in list(last_block)]), img_addr, unicode, ))
-	
+
 	addresses = 0
-	
+
 	width=ord(last_block[6:7])
 	height=ord(last_block[7:8])
 	print ("w: %d h:%d" %(width, height))
-	
+
 	dimensione_stimata = int((width+1) //2) *height
 	print ("dimensione_stimata 0x%02x"%dimensione_stimata)
 	print ("last_img_addr = %x" % last_img)
-	print ()	
+	print ()
 	#pointer = last_img + 0x20 +dimensione_stimata + 7
-	pointer =-0xe	
+	pointer =-0xe
 	print ("pointer; 0x%06x" % pointer )
 	while last_block[-4::] != b'\x00\x00\x00\x00':
 		addresses += 1
 		#next_block = file_content[pointer+0xe:pointer+0xe+0xe]
-		
+
 		#next_img_addr = (ord(next_block[3:4])<<24) + (ord(next_block[2:3])<<16) + (ord(next_block[1:2])<<8)+ (ord(next_block[0:1])<<0)
 		#try:
 		img_addr = (ord(last_block[3:4])<<24) + (ord(last_block[2:3])<<16) + (ord(last_block[1:2])<<8)+ (ord(last_block[0:1])<<0)
 		unicode = (ord(last_block[5:6])<<8) + (ord(last_block[4:5])<<0)
 		width=ord(last_block[6:7])
 		height=ord(last_block[7:8])
-		
+
 		# FF0061 = carattere combinato
-		
+
 		#print ("ptr=%06x %s img_data_addr=%08x+0x20 unicode=%04x" %(pointer, last_block.hex(), img_addr, unicode, ))
 		if verbose > 0:
 			print ("           ptr_to_img |U+xxy|w |h |      w+|footer  |")
@@ -132,13 +132,13 @@ def unpackFont(font_path, raw = None, verbose = 0):
 
 			if verbose > 0:
 				print ("imgsize:0x%04x h:%d w:%d h:%x w:%x" % (imgsize,height,width,height,width))
-			
+
 			if raw:
 				#write_raw_image_data
 				bmp = open(dirname + os.path.sep + "%04x-%s-%s.data" %  (unicode,"".join(["%02x" % el for el in list(last_block[6::])]),"" ),"wb")
 				bmp.write(file_content[0x20+img_addr:0x20+img_addr+imgsize])
 				bmp.close()
-						
+
 			if width >0 and height >0:
 				#if unicode == 0x000021:
 				#	print(file_content[0x20+img_addr:0x20+img_addr+imgsize])
@@ -172,7 +172,7 @@ def unpackFont(font_path, raw = None, verbose = 0):
 					if ( shift_mask != 0):
 						#other bits are useless
 						pos+=1
-					
+
 					#print(row_out)
 					png_out_image.append(row_out)
 				png_attr={}
@@ -202,8 +202,8 @@ def unpackFont(font_path, raw = None, verbose = 0):
 	config["fontVersion"] = fontVersion
 	config["offset"] = len(file_content) + pointer + 0xe
 	config["addresses"] = addresses
-	
-	
+
+
 	fjson =  open(dirname + os.path.sep + "_font_info.json", "w")
 	json.dump(config, fjson, indent=4, sort_keys=True)
 	fjson.close()
@@ -212,49 +212,49 @@ def unpackFont(font_path, raw = None, verbose = 0):
 # Create a Amazfit Bip file from bmps
 def packFont(font_path, raw = None, verbose = 0):
 	print('Packing', font_path)
-	
+
 	fjson = open(dirname + os.path.sep + "_font_info.json", "r")
 	config = json.load(fjson)
 	fjson.close()
-	
+
 	#header = bytearray(binascii.unhexlify('4E455A4B08FFFFFFFFFF01000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'))
 	header = bytearray(binascii.unhexlify('4E455A4B99FFFFFFFFFF99000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'))
 	bmps = bytearray()
 	mappings = bytearray()
-	
+
 	header[0x0A] = config["fontFlags"]
 	header[0x04] = config["fontVersion"]
-	
+
 	range_nr = 0
 	seq_nr = 0
 	startrange = -1
-	
+
 	bmp_files = sorted(glob.glob(dirname +  os.sep + '*.png'))
 
 	for i in range (0, len(bmp_files)):
 		#margin_top = int(bmp_files[i].split(os.sep)[1][4:6],16)
-		
+
 		if(i == 0):
 			unicode = int(bmp_files[i].split(os.sep)[1][0:4],16)
 			blob = binascii.unhexlify(bmp_files[i].split(os.sep)[1][9:21])
 		else:
 			unicode = next_unicode
 			blob = next_blob
-		
+
 		if(i+1 < len(bmp_files)):
 			next_unicode = int(bmp_files[i+1].split(os.sep)[1][0:4],16)
 			next_blob = binascii.unhexlify(bmp_files[i+1].split(os.sep)[1][9:21])
 		else:
 			next_unicode = -1
-			
+
 		if verbose > 0:
 			print (unicode,next_unicode)
-		
-		if (unicode != next_unicode):		
+
+		if (unicode != next_unicode):
 			if (startrange == -1):
-				range_nr += 1			 
+				range_nr += 1
 				startrange = unicode
-			
+
 			if verbose > 0:
 				print (bmp_files[i])
 			mappings.extend(len(bmps).to_bytes(4,'little')) #address
@@ -263,32 +263,32 @@ def packFont(font_path, raw = None, verbose = 0):
 			if os.stat(bmp_files[i]).st_size == 0:
 				width = 0
 				height = 0
-				mappings.extend(width.to_bytes(1,'big')) 
-				mappings.extend(height.to_bytes(1,'big')) 
-				#mappings.extend(width.to_bytes(1,'big')) 
-				#mappings.extend(height.to_bytes(1,'big')) 
-				#mappings.extend(height.to_bytes(1,'big')) 
-				#mappings.extend(binascii.unhexlify('FF0001')) 
+				mappings.extend(width.to_bytes(1,'big'))
+				mappings.extend(height.to_bytes(1,'big'))
+				#mappings.extend(width.to_bytes(1,'big'))
+				#mappings.extend(height.to_bytes(1,'big'))
+				#mappings.extend(height.to_bytes(1,'big'))
+				#mappings.extend(binascii.unhexlify('FF0001'))
 				mappings.extend(blob)
 				continue
 			pngreader = png.Reader(bmp_files[i])
 			(width, height, png_in_image, attr) = pngreader.read()
 			unk = 0
-			mappings.extend(width.to_bytes(1,'big')) 
-			mappings.extend(height.to_bytes(1,'big')) 
-			#mappings.extend(unk.to_bytes(1,'big')) 
-			#mappings.extend(unk.to_bytes(1,'big')) 
-			#mappings.extend(unk.to_bytes(1,'big')) 
+			mappings.extend(width.to_bytes(1,'big'))
+			mappings.extend(height.to_bytes(1,'big'))
+			#mappings.extend(unk.to_bytes(1,'big'))
+			#mappings.extend(unk.to_bytes(1,'big'))
+			#mappings.extend(unk.to_bytes(1,'big'))
 			#mappings.extend(binascii.unhexlify('FF0001'))
 			mappings.extend(blob)
-			
+
 			depth=attr['bitdepth']
 			grey=attr['greyscale']
 			alpha=attr['alpha']
-			
+
 			if depth != 8 or not grey or alpha:
 				print ("Image %s not compatible, should be grayscale, bitdepth 8, without alpha channel" % (bmp_files[i]))
-			
+
 			bmpsraw = bytearray() #DEBUG CODE
 			raw_out_image=''
 			if verbose > 0:
@@ -321,7 +321,7 @@ def packFont(font_path, raw = None, verbose = 0):
 	rnr = range_nr.to_bytes(2, byteorder='big')
 
 	font_file = open(font_path, 'wb')
-	font_file.write(header)	
+	font_file.write(header)
 	font_file.write(bmps)
 	if verbose > 0:
 		print (len(bmps))
@@ -336,7 +336,7 @@ parser.add_argument('-d', '--directory', dest='dirname', default=dirname)
 parser.add_argument('-r', '--raw', dest='raw', action='store_true')
 parser.add_argument('-v', dest='verbose', action='count', default=0, help='verbose')
 parser.add_argument("mode", help="<pack|unpack>")
-parser.add_argument("filename", 
+parser.add_argument("filename",
                     help="<filename>")
 args = parser.parse_args()
 
