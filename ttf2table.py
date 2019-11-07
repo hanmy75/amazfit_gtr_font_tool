@@ -25,15 +25,33 @@ def RotateRowCol(in_buffer):
         rotated_buffer[i] = value & 0xff
     return rotated_buffer
 
-def ConvertTTF(font_path, font_size):
+def GenerateTable():
+    for sub_range in font_range_list:
+        start = sub_range[0]
+        end   = sub_range[1]
+        print(" # Font table 0x%02x ~ 0x%02x" % (start, end))
+        print("FontTable = [")
+        for uni in range(start, end+1):
+            unicodeChars = chr(uni)
+            # Open PNG
+            theImage = Image.open(output_path + "/" + "%04x.png" % uni)
+            finalImage = Image.new('1', (table_width, table_height), color='black')
+            finalImage.paste(theImage, (0, 0))
+
+            # Rotate Row and Col
+            raw_buffer = finalImage.tobytes()
+            rotated_buffer = RotateRowCol(raw_buffer)
+
+            print("    [0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x], # %c" % (rotated_buffer[0], rotated_buffer[1], rotated_buffer[2], rotated_buffer[3], rotated_buffer[4], rotated_buffer[5], rotated_buffer[6], rotated_buffer[7], unicodeChars))
+        print("]")
+
+def ConvertTTF2PNG(font_path, font_size):
     font = ImageFont.truetype(font=font_path, size = font_size)
     ascent, descent = font.getmetrics()
 
     for sub_range in font_range_list:
         start = sub_range[0]
         end   = sub_range[1]
-        print(" # Font table 0x%02x ~ 0x%02x" % (start, end))
-        print("FontTable = [")
         for uni in range(start, end+1):
             unicodeChars = chr(uni)
             width, height = font.getsize(unicodeChars)
@@ -51,16 +69,10 @@ def ConvertTTF(font_path, font_size):
             finalImage = Image.new('1', (table_width, table_height), color='black')
             finalImage.paste(croppedImage, (1, 0))
 
-            #print("Create %04x : size(%d,%d)" % (uni, cropped_width, cropped_height))
+            print("Create %04x : size(%d,%d)" % (uni, cropped_width, cropped_height))
             file_name = output_path + "/" + "%04x" % (uni)
             finalImage.save('{}.png'.format(file_name))
 
-            # Rotate Row and Col
-            raw_buffer = finalImage.tobytes()
-            rotated_buffer = RotateRowCol(raw_buffer)
-
-            print("    [0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x], # %c " % (rotated_buffer[0], rotated_buffer[1], rotated_buffer[2], rotated_buffer[3], rotated_buffer[4], rotated_buffer[5], rotated_buffer[6], rotated_buffer[7], unicodeChars))
-        print("]")
 
 
 # Main
@@ -72,7 +84,8 @@ args = parser.parse_args()
 if args.filename:
     output_path = "./output"
     os.makedirs(output_path, exist_ok = True)
-    ConvertTTF(args.filename, font_size=10)
+    #ConvertTTF2PNG(args.filename, font_size=10)
+    GenerateTable()
 else:
     print('Usage:')
     print('   python3', sys.argv[0], 'NanumGothicBold.ttf')
