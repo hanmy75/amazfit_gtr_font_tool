@@ -12,7 +12,7 @@ test_image_filename = "test_image.png"
 canvas_width = 200
 canvas_height = 50
 canvas_baseline = 30
-
+vo_base = 4
 font_postfix = "ff0001"
 
 
@@ -108,7 +108,7 @@ def ConvertTTF(font_path, font_size):
                 croppedImage = theImage.crop((offset_x, offset_y, width, height))
 
                 # Get vertical offset
-                vo = ascent - offset_y + 3
+                vo = ascent - offset_y + vo_base
 
                 print("Create %04x : size(%d,%d) offset %d" % (uni, cropped_width, cropped_height, vo))
 
